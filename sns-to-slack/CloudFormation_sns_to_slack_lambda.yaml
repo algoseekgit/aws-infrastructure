@@ -92,8 +92,6 @@ Resources:
               message = f"*({account}) {subject}*: {m_text}"
               webclient = WebClient(token=os.environ['SLACK_API_TOKEN'])
               status = post_slack_message(webclient, slack_channel, message)
-              webclient = WebClient(token=os.environ['SLACK_API_TOKEN'])
-              status = post_slack_message(webclient, slack_channel, message)
               if status:
                 raise ValueError(status)
 
