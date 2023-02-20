@@ -70,7 +70,6 @@ Resources:
                 return f"{channel} does not exist"
               try:
                 response = client.chat_postMessage(channel=channel, text=text)
-                print(response)
               except SlackApiError as e:
                 return str(e)
               if not response["ok"]:
@@ -103,7 +102,3 @@ Resources:
       Runtime: python3.9
       Timeout: 30
       Role: !GetAtt "LambdaRole.Arn"
-
-
-
-
