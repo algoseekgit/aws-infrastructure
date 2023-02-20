@@ -1,2 +1,2 @@
 # AWS infrastructure
-r AWS based Infrastructure components
+AWS based Infrastructure components
