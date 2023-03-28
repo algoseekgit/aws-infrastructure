@@ -83,17 +83,20 @@ Resources:
               '''The Lambda function which gets an SNS as input and publishes 
               the message to a slack channel
               '''
-              sns = event['Records'][0]['Sns']
-              topic_arn = sns["TopicArn"]
-              slack_channel = '#' + topic_arn.split(':')[-1]
-              account = topic_arn.split(':')[-2]
-              subject = sns["Subject"]
-              m_text = sns["Message"]
-              message = f"*({account}) {subject}*: {m_text}"
-              webclient = WebClient(token=os.environ['SLACK_API_TOKEN'])
-              status = post_slack_message(webclient, slack_channel, message)
-              if status:
-                raise ValueError(status)
+              for record in event['Records']:
+                  if record["EventSource"] != "aws:sns":
+                      continue
+                  sns = record['Sns']
+                  topic_arn = sns["TopicArn"]
+                  slack_channel = '#' + topic_arn.split(':')[-1]
+                  account = topic_arn.split(':')[-2]
+                  subject = sns["Subject"]
+                  m_text = sns["Message"]
+                  message = f"*({account}) {subject}*: {m_text}"
+                  webclient = WebClient(token=os.environ['SLACK_API_TOKEN'])
+                  status = post_slack_message(webclient, slack_channel, message)
+                  if status:
+                    raise ValueError(status)
 
       FunctionName: SNS-to-slack-lambda
       Handler: index.lambda_handler
