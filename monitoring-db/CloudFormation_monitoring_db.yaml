@@ -1,0 +1,212 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >
+  Lambda deployment using CloudFormation.
+  https://github.com/aws-samples/aws-cloudformation-inline-python-lambda-example
+Parameters:
+  LambdaFunctionName:
+    Type: String
+    MinLength: '5'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9_-]*'
+    Description: The name of the Lambda function to be deployed
+    Default: monitoring_db_sns_handler
+  LambdaRoleName:
+    Type: String
+    MinLength: '5'
+    MaxLength: '64'
+    AllowedPattern: '[\w+=,.@-]+'
+    Description: The name of the IAM role used as the Lambda execution role
+    Default: monitoring_db_sns_handler_role
+  DynamoDBTableName:
+    Type: String
+    MinLength: '5'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9_-]*'
+    Description: The name of the DynamoDB table
+    Default: monitoring_db_table
+  SNSTopicName:
+    Type: String
+    MinLength: '5'
+    MaxLength: '64'
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9_-]*'
+    Description: The name of the SNS topic for alerts
+    Default: monitoring_db_sns_alerts
+ 
+Resources:
+
+  SNSTopic:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      DisplayName: !Sub "${Join(' ', ${Fn::Split('-', ${SNSTopicName})}).title()}"
+      TopicName: !Ref SNSTopicName
+      Subscription:
+        - Protocol: "email"
+          Endpoint: "example@example.com"
+
+  DynamoDBTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "bucketgroup_text_id"
+          AttributeType: "S"
+        - AttributeName: "tradedate"
+          AttributeType: "S"
+      BillingMode: "PAY_PER_REQUEST"
+      KeySchema:
+        - AttributeName: "bucketgroup_text_id"
+          KeyType: "HASH"
+        - AttributeName: "tradedate"
+          KeyType: "RANGE"
+      TableName: !Ref DynamoDBTableName
+      Tags:
+        - Key: "infrastructure"
+          Value: "logging"
+  
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref LambdaRoleName
+      Description: An execution role for a Lambda function launched by CloudFormation
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action:
+          - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+
+  
+  Function:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - x86_64
+      Description: >
+        Make shure to use proper Slack API token as an environmental variable. For test choose standard SNS notification and overwrite TopicArn
+        with the one containing proper chanel ("TopicArn": "arn:aws:sns:us-east-1:123456789012:dev-data-lake").
+      Environment:
+        Variables:
+          SNS_ALERT_ARN: !Ref SNSTopic
+          DYNAMODB_TABLE: !Ref DynamoDBTableName
+      Code:
+        ZipFile: |
+          import os
+          import json
+          from json.decoder import JSONDecodeError
+
+          import boto3
+
+
+          session = boto3.Session(region_name='us-east-1')
+
+          alert_topic_arn = os.getenv('SNS_ALERT_ARN')
+          sns = session.client(service_name='sns')
+          sns_alert_topic = sns.Topic(alert_topic_arn)
+
+          table_name = os.getenv('DYNAMODB_TABLE')
+          dynamodb = session.resource('dynamodb')
+          dynamodb_table = dynamodb.Table(table_name)
+
+
+          class Status(object):
+
+              def __init__(self, code, message=None):
+                  self.code = code
+                  self.message = message
+
+              @classmethod
+              def from_response_metadata(cls, response):
+                  if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                      return Status('OK')
+                  else:
+                      return Status('Fail', response['Error']['Message'])
+
+
+          def parse_sns_message(event):
+              '''
+              Parse and validate payload from SNS message
+              '''
+              # check event required fields
+              for attr in ("Message", "Timestamp"):
+                  if attr not in event:
+                      msg = f"SNS Event {event} does not contain a '{attr}' field"
+                      send_sns_alert(sns_alert_topic, msg)
+              
+              # parse JSON-encoded payload
+              try:
+                  data = json.loads(event["Message"])
+              except (JSONDecodeError, TypeError) as e:
+                  msg = f"Failed to parse message payload: {e}"
+                  send_sns_alert(sns_alert_topic, msg)
+                  raise RuntimeError(msg)
+              
+              data["timestamp"] = event["Timestamp"]
+              
+              # make sure keys exist with non-empty values
+              required_keys = {
+                  'dataset_text_id', 'bucketgroup_text_id', 'bucket_name', 
+                  'update_type', 'update_frequency', 'tradedate', 'timestamp'
+              }
+              diff = required_keys - data.keys()
+              if diff:
+                  msg = f"Missing fields {diff} in the event {event}"
+                  send_sns_alert(sns_alert_topic, msg)
+                  raise RuntimeError(msg)
+              for key in required_keys:
+                  if not data[key]:
+                      msg = f"Empty {key} value found in event {event}"
+                      send_sns_alert(sns_alert_topic, msg)
+                      raise RuntimeError(msg)
+
+              return data
+
+
+          def send_sns_alert(topic, message):
+              sub = "Monitoring DB"
+              return topic.publish(Message=message, Subject=sub)
+
+
+          def put_item_into_table(dynamodb_table, payload):
+             
+              lookup_key = {
+                  'bucketgroup_text_id': payload['bucketgroup_text_id'],
+                  'tradedate': payload['tradedate']
+              }
+              item = dynamodb_table.get_item(Key=lookup_key).get('Item')
+              # keep history of previous events
+              if item:
+                  events_log = item.pop('events_log', None)
+                  item_json = json.dumps(item)
+                  if events_log:
+                      events_log += f"|{item_json}"
+                  else:
+                      events_log = item_json
+                  payload["events_log"] = events_log
+
+              response = dynamodb_table.put_item(Item=payload)
+              return Status.from_response_metadata(response)
+
+
+          def lambda_handler(event, context):
+
+              for record in event["Records"]:
+                  if record["EventSource"] == "aws:sns":
+                      payload = parse_sns_message(record["Sns"])
+                      status = put_item_into_table(dynamodb_table, payload)
+                      if status.code == 'Fail':
+                          send_sns_alert(sns_alert_topic, status.message)
+                          raise RuntimeError(status.message)
+              
+              return 'OK'
+          
+
+      FunctionName: !Ref LambdaFunctionName
+      Handler: index.lambda_handler
+      Runtime: python3.9
+      Timeout: 60
+      Role: !GetAtt "LambdaRole.Arn"
+
