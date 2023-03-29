@@ -159,12 +159,12 @@ Resources:
               }
               diff = required_keys - data.keys()
               if diff:
-                  msg = f"Missing fields {diff} in the event {event}"
+                  msg = f"Missing fields {diff} in the event message {data}"
                   send_sns_alert(sns_alert_topic, msg)
                   raise RuntimeError(msg)
               for key in required_keys:
                   if not data[key]:
-                      msg = f"Empty {key} value found in event {event}"
+                      msg = f"Empty {key} value found in event message {data}"
                       send_sns_alert(sns_alert_topic, msg)
                       raise RuntimeError(msg)
 
