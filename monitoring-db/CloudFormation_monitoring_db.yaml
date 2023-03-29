@@ -150,12 +150,12 @@ Resources:
                   send_sns_alert(sns_alert_topic, msg)
                   raise RuntimeError(msg)
               
-              data["timestamp"] = event["Timestamp"]
+              data["modified"] = event["Timestamp"]
               
               # make sure keys exist with non-empty values
               required_keys = {
                   'dataset_text_id', 'bucketgroup_text_id', 'bucket_name', 
-                  'update_type', 'update_frequency', 'tradedate', 'timestamp'
+                  'update_type', 'update_frequency', 'tradedate', 'modified'
               }
               diff = required_keys - data.keys()
               if diff:
@@ -192,6 +192,9 @@ Resources:
                   else:
                       events_log = item_json
                   payload["events_log"] = events_log
+                  payload["created"] = item["created"]
+              else:
+                  payload["created"] = payload["modified"]
 
               response = dynamodb_table.put_item(Item=payload)
               return Status.from_response_metadata(response)
