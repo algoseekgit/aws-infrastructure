@@ -68,6 +68,18 @@ Resources:
       Tags:
         - Key: "infrastructure"
           Value: "logging"
+      GlobalSecondaryIndexes:
+        - IndexName: "TradedateIndex"
+          KeySchema:
+            - AttributeName: "tradedate"
+              KeyType: "HASH"
+            - AttributeName: "bucketgroup_text_id"
+              KeyType: "RANGE"
+          Projection:
+            NonKeyAttributes:
+              - "created"
+              - "modified"
+            ProjectionType: "INCLUDE"
   
   LambdaRole:
     Type: AWS::IAM::Role
