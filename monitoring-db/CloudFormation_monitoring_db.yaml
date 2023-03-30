@@ -31,17 +31,24 @@ Parameters:
     AllowedPattern: '[a-zA-Z][a-zA-Z0-9_-]*'
     Description: The name of the SNS topic for alerts
     Default: monitoring_db_sns_alerts
+  SNSTopicDisplayName:
+    Type: String
+    MinLength: '5'
+    MaxLength: '64'
+    AllowedPattern: '.*'
+    Description: The display name of the SNS topic for alerts
+    Default: MonitoringDB Alerts
  
 Resources:
 
   SNSTopic:
     Type: "AWS::SNS::Topic"
     Properties:
-      DisplayName: !Sub "${Join(' ', ${Fn::Split('-', ${SNSTopicName})}).title()}"
+      DisplayName: !Ref SNSTopicDisplayName
       TopicName: !Ref SNSTopicName
       Subscription:
         - Protocol: "email"
-          Endpoint: "example@example.com"
+          Endpoint: "taras@algoseek.com"
 
   DynamoDBTable:
     Type: "AWS::DynamoDB::Table"
@@ -61,6 +68,18 @@ Resources:
       Tags:
         - Key: "infrastructure"
           Value: "logging"
+      GlobalSecondaryIndexes:
+        - IndexName: "TradedateIndex"
+          KeySchema:
+            - AttributeName: "tradedate"
+              KeyType: "HASH"
+            - AttributeName: "bucketgroup_text_id"
+              KeyType: "RANGE"
+          Projection:
+            NonKeyAttributes:
+              - "created"
+              - "modified"
+            ProjectionType: "INCLUDE"
   
   LambdaRole:
     Type: AWS::IAM::Role
@@ -86,8 +105,7 @@ Resources:
       Architectures:
         - x86_64
       Description: >
-        Make shure to use proper Slack API token as an environmental variable. For test choose standard SNS notification and overwrite TopicArn
-        with the one containing proper chanel ("TopicArn": "arn:aws:sns:us-east-1:123456789012:dev-data-lake").
+        Parses SNS event from updates infrastructure and inserts the payload into DynamoDB
       Environment:
         Variables:
           SNS_ALERT_ARN: !Ref SNSTopic
@@ -104,7 +122,7 @@ Resources:
           session = boto3.Session(region_name='us-east-1')
 
           alert_topic_arn = os.getenv('SNS_ALERT_ARN')
-          sns = session.client(service_name='sns')
+          sns = session.resource(service_name='sns')
           sns_alert_topic = sns.Topic(alert_topic_arn)
 
           table_name = os.getenv('DYNAMODB_TABLE')
@@ -140,25 +158,25 @@ Resources:
               try:
                   data = json.loads(event["Message"])
               except (JSONDecodeError, TypeError) as e:
-                  msg = f"Failed to parse message payload: {e}"
+                  msg = f"Failed to parse message payload: {event} ({e})"
                   send_sns_alert(sns_alert_topic, msg)
                   raise RuntimeError(msg)
               
-              data["timestamp"] = event["Timestamp"]
+              data["modified"] = event["Timestamp"]
               
               # make sure keys exist with non-empty values
               required_keys = {
                   'dataset_text_id', 'bucketgroup_text_id', 'bucket_name', 
-                  'update_type', 'update_frequency', 'tradedate', 'timestamp'
+                  'update_type', 'update_frequency', 'tradedate', 'modified'
               }
               diff = required_keys - data.keys()
               if diff:
-                  msg = f"Missing fields {diff} in the event {event}"
+                  msg = f"Missing fields {diff} in the event message {data}"
                   send_sns_alert(sns_alert_topic, msg)
                   raise RuntimeError(msg)
               for key in required_keys:
                   if not data[key]:
-                      msg = f"Empty {key} value found in event {event}"
+                      msg = f"Empty {key} value found in event message {data}"
                       send_sns_alert(sns_alert_topic, msg)
                       raise RuntimeError(msg)
 
@@ -186,6 +204,9 @@ Resources:
                   else:
                       events_log = item_json
                   payload["events_log"] = events_log
+                  payload["created"] = item["created"]
+              else:
+                  payload["created"] = payload["modified"]
 
               response = dynamodb_table.put_item(Item=payload)
               return Status.from_response_metadata(response)
