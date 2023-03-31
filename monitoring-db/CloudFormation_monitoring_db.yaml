@@ -1,7 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: >
-  Lambda deployment using CloudFormation.
-  https://github.com/aws-samples/aws-cloudformation-inline-python-lambda-example
+  The infrastructure to log dataset updates events incoming from SNS
 Parameters:
   LambdaFunctionName:
     Type: String
@@ -195,19 +194,16 @@ Resources:
                   'tradedate': payload['tradedate']
               }
               item = dynamodb_table.get_item(Key=lookup_key).get('Item')
-              # keep history of previous events
+
               if item:
-                  events_log = item.pop('events_log', None)
-                  item_json = json.dumps(item)
-                  if events_log:
-                      events_log += f"|{item_json}"
-                  else:
-                      events_log = item_json
-                  payload["events_log"] = events_log
+                  events_log = json.loads(item.pop('events_log', "[]"))
+                  events_log.append(item)
+                  payload["events_log"] = json.dumps(events_log)
                   payload["created"] = item["created"]
               else:
+                  payload["events_log"] = json.dumps([])
                   payload["created"] = payload["modified"]
-
+                  
               response = dynamodb_table.put_item(Item=payload)
               return Status.from_response_metadata(response)
 
