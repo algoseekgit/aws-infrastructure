@@ -79,7 +79,6 @@ def lambda_handler(event, context):
     bucket_name = bkg_updates['bucket_name']
 
     session = boto3.Session(region_name='us-east-1',)
-    table_name = 'monitoring_db_table'
     dynamodb = session.resource('dynamodb')
     sns = session.client("sns")
     dynamodb_table = dynamodb.Table(os.getenv('TABLE_NAME'))
@@ -87,19 +86,21 @@ def lambda_handler(event, context):
     # Get current time in EDT timezone
     edt_timezone = dateutil.tz.gettz('America/New_York')
     current_time_edt = datetime.now(tz=edt_timezone)
-    print(current_time_edt)
+
+    # trading day to check updates
+    trading_day = (current_time_edt - timedelta(days=bkg_updates['days_offset'])).date().strftime('%Y%m%d')
 
     # Generate alert/failure messages
     failure_msg = failure_message.replace(
         '__bkg_text_id__', bkg_text_id
     ).replace(
-        '__trade_date__', (current_time_edt - timedelta(days=bkg_updates['days_offset'])).date().strftime('%Y%m%d')
+        '__trade_date__', trading_day
     ).replace('__bucket_details__', bucket_name)
 
     alert_msg = alert_message.replace(
         '__bkg_text_id__', bkg_text_id
     ).replace(
-        '__trade_date__', (current_time_edt - timedelta(days=bkg_updates['days_offset'])).date().strftime('%Y%m%d')
+        '__trade_date__', trading_day
     ).replace('__bucket_details__', bucket_name)
 
 
@@ -112,7 +113,7 @@ def lambda_handler(event, context):
         db_record = get_dynamo_db_record(
             dynamodb_table,
             bkg_text_id,
-            (current_time_edt - timedelta(days=bkg_updates['days_offset'])).date().strftime('%Y%m%d')
+            trading_day
         )
         event_log = json.loads(db_record.get('events_log', "[]"))
         update_times = [record['modified'] for record in event_log]
@@ -131,7 +132,7 @@ def lambda_handler(event, context):
         db_record = get_dynamo_db_record(
             dynamodb_table,
             bkg_text_id,
-            (current_time_edt - timedelta(days=bkg_updates['days_offset'])).date().strftime('%Y%m%d')
+            trading_day
         )
         if not db_record:
             # Define notification type alert/failure

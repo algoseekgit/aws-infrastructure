@@ -18,8 +18,8 @@ def request(
     :param params: Optional argument to add parameters to the endpoint URL
     return: Returns a dictionary if the response status code is 200 otherwise raise an Exception.
     """
-    api_login_name = os.getenv('API_LOGIN_NAME')  # 'Maintainer'
-    api_login_secret = os.getenv('API_LOGIN_SECRET')  # 'CyDMEmLotWsykvOo'
+    api_login_name = os.getenv('API_LOGIN_NAME')
+    api_login_secret = os.getenv('API_LOGIN_SECRET')
     api_server = os.getenv('API_SERVER')  # 'metadata-services.algoseek.com'
     api_prefix = os.getenv('API_PREFIX')  # 'api/v1'
 
