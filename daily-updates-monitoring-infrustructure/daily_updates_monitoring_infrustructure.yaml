@@ -132,7 +132,7 @@ Resources:
                   update_times.append(db_record['modified'])
                   # Checking existence of updates
                   for update_time in update_times:
-                      update_time_dt = datetime.strptime('%Y-%m-%dT%H:%M:%S.%fZ', update_time)
+                      update_time_dt = datetime.strptime(update_time, '%Y-%m-%dT%H:%M:%S.%fZ')
                       if update_time_dt >= start_interval:
                           return
                   send_sns_alert(
