@@ -168,7 +168,7 @@ Resources:
           TABLE_NAME: 'monitoring_db_table'
       MemorySize: 128
       DeadLetterConfig:
-        TargetArn: !Ref MySNSTopic
+        TargetArn: !Ref MySNSTopicSecond
       Timeout: 120
   
   MySecondLambdaFunction:
@@ -514,7 +514,7 @@ Resources:
           LAMBDA_FUNCTION_ROLE_ARN: !GetAtt LambdaExecutionRole.Arn
       MemorySize: 256
       DeadLetterConfig:
-        TargetArn: !Ref MySNSTopic
+        TargetArn: !Ref MySNSTopicSecond
       Timeout: 300
 
   LambdaExecutionRole:
@@ -540,7 +540,18 @@ Resources:
   MySNSTopic:
     Type: 'AWS::SNS::Topic'
     Properties:
+      TopicName: daily-updates-monitoring
       DisplayName: DailyUpdatesMonitoringInfrustructure
+      Subscription:
+        - Protocol: email
+          Endpoint: roman@algoseek.com
+  
+  MySNSTopicSecond:
+    Type: 'AWS::SNS::Topic'
+    DeletionPolicy: Retain
+    Properties:
+      TopicName: lambda-errors-reporting
+      DisplayName: LambdaErrorsReporting
       Subscription:
         - Protocol: email
           Endpoint: roman@algoseek.com
