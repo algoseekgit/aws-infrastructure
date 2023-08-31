@@ -61,6 +61,19 @@ Resources:
           import os
           from slack_sdk import WebClient
           from slack_sdk.errors import SlackApiError
+          
+          def topic_name_mapping(topic_name: str) -> str:
+              """
+              Customize the name of the topic that maps onto the slack channel name
+              """
+              mapping = {
+                  'DailyUpdatesMonitoringInfrastructure-MySNSTopic-qpUe2KYp3Rdb': 'daily-updates-monitoring'
+              }
+              if topic_name in mapping:
+                  return mapping[topic_name]
+              else:
+                  return topic_name
+                
 
           def post_slack_message(client: WebClient, channel: str, text: str) -> str:
               """
@@ -88,7 +101,7 @@ Resources:
                       continue
                   sns = record['Sns']
                   topic_arn = sns["TopicArn"]
-                  slack_channel = '#' + topic_arn.split(':')[-1]
+                  slack_channel = '#' + topic_name_mapping(topic_arn.split(':')[-1])
                   account = topic_arn.split(':')[-2]
                   subject = sns["Subject"]
                   m_text = sns["Message"]
