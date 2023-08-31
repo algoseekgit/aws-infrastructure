@@ -550,6 +550,26 @@ Resources:
       Subscription:
         - Protocol: email
           Endpoint: roman@algoseek.com
+  
+  MyLambdaFunctionEventInvokeConfig:
+    Type: 'AWS::Lambda::EventInvokeConfig'
+    Properties:
+      FunctionName: !Ref MyLambdaFunction
+      Qualifier: $LATEST
+      DestinationConfig:
+        OnFailure:
+          Type: SNS
+          Destination: !Ref ErrorSNSTopic
+  
+  MySecondLambdaFunctionEventInvokeConfig:
+    Type: 'AWS::Lambda::EventInvokeConfig'
+    Properties:
+      FunctionName: !Ref MySecondLambdaFunction
+      Qualifier: $LATEST
+      DestinationConfig:
+        OnFailure:
+          Type: SNS
+          Destination: !Ref ErrorSNSTopic
 
 Outputs:
   LambdaFunctionArn:
