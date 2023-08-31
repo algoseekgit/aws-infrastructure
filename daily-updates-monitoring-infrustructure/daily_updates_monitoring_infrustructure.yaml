@@ -558,7 +558,6 @@ Resources:
       Qualifier: $LATEST
       DestinationConfig:
         OnFailure:
-          Type: SNS
           Destination: !Ref ErrorSNSTopic
   
   MySecondLambdaFunctionEventInvokeConfig:
@@ -568,7 +567,6 @@ Resources:
       Qualifier: $LATEST
       DestinationConfig:
         OnFailure:
-          Type: SNS
           Destination: !Ref ErrorSNSTopic
 
 Outputs:
