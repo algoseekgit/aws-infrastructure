@@ -2,14 +2,9 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: AWS CloudFormation template for Daily Updates Monitoring Infrustructure
 
 Parameters:
-  CreateSNSTopic:
-    Description: "Boolean parameter to decide if the SNS Topic should be created"
+  ErrorSNSTopic:
+    Description: "ARN of the error reporting SNS topic"
     Type: String
-    AllowedValues: ["true", "false"]
-    Default: "true"
-
-Conditions:
-  ShouldCreateSNSTopic: !Equals [!Ref CreateSNSTopic, "true"]
 
 Resources:
   MyLambdaFunction:
@@ -178,7 +173,7 @@ Resources:
           TABLE_NAME: 'monitoring_db_table'
       MemorySize: 128
       DeadLetterConfig:
-        TargetArn: !Ref MySNSTopicSecond
+        TargetArn: !Ref ErrorSNSTopic
       Timeout: 120
   
   MySecondLambdaFunction:
@@ -524,7 +519,7 @@ Resources:
           LAMBDA_FUNCTION_ROLE_ARN: !GetAtt LambdaExecutionRole.Arn
       MemorySize: 256
       DeadLetterConfig:
-        TargetArn: !Ref MySNSTopicSecond
+        TargetArn: !Ref ErrorSNSTopic
       Timeout: 300
 
   LambdaExecutionRole:
@@ -552,17 +547,6 @@ Resources:
     Properties:
       TopicName: daily-updates-monitoring
       DisplayName: DailyUpdatesMonitoringInfrustructure
-      Subscription:
-        - Protocol: email
-          Endpoint: roman@algoseek.com
-  
-  MySNSTopicSecond:
-    Type: 'AWS::SNS::Topic'
-    Condition: ShouldCreateSNSTopic
-    DeletionPolicy: Retain
-    Properties:
-      TopicName: lambda-errors-reporting
-      DisplayName: LambdaErrorsReporting
       Subscription:
         - Protocol: email
           Endpoint: roman@algoseek.com
