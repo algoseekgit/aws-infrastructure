@@ -1,6 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: AWS CloudFormation template for Daily Updates Monitoring Infrustructure
 
+Parameters:
+  ErrorSNSTopic:
+    Description: "ARN of the error reporting SNS topic"
+    Type: String
+
 Resources:
   MyLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -168,7 +173,7 @@ Resources:
           TABLE_NAME: 'monitoring_db_table'
       MemorySize: 128
       DeadLetterConfig:
-        TargetArn: !Ref MySNSTopic
+        TargetArn: !Ref ErrorSNSTopic
       Timeout: 120
   
   MySecondLambdaFunction:
@@ -514,7 +519,7 @@ Resources:
           LAMBDA_FUNCTION_ROLE_ARN: !GetAtt LambdaExecutionRole.Arn
       MemorySize: 256
       DeadLetterConfig:
-        TargetArn: !Ref MySNSTopic
+        TargetArn: !Ref ErrorSNSTopic
       Timeout: 300
 
   LambdaExecutionRole:
@@ -540,10 +545,29 @@ Resources:
   MySNSTopic:
     Type: 'AWS::SNS::Topic'
     Properties:
+      TopicName: daily-updates-monitoring
       DisplayName: DailyUpdatesMonitoringInfrustructure
       Subscription:
         - Protocol: email
           Endpoint: roman@algoseek.com
+  
+  MyLambdaFunctionEventInvokeConfig:
+    Type: 'AWS::Lambda::EventInvokeConfig'
+    Properties:
+      FunctionName: !Ref MyLambdaFunction
+      Qualifier: $LATEST
+      DestinationConfig:
+        OnFailure:
+          Destination: !Ref ErrorSNSTopic
+  
+  MySecondLambdaFunctionEventInvokeConfig:
+    Type: 'AWS::Lambda::EventInvokeConfig'
+    Properties:
+      FunctionName: !Ref MySecondLambdaFunction
+      Qualifier: $LATEST
+      DestinationConfig:
+        OnFailure:
+          Destination: !Ref ErrorSNSTopic
 
 Outputs:
   LambdaFunctionArn:
