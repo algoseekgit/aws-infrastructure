@@ -1,6 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: AWS CloudFormation template for Daily Updates Monitoring Infrustructure
 
+Parameters:
+  CreateSNSTopic:
+    Description: "Boolean parameter to decide if the SNS Topic should be created"
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "true"
+
+Conditions:
+  ShouldCreateSNSTopic: !Equals [!Ref CreateSNSTopic, "true"]
+
 Resources:
   MyLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -548,6 +558,7 @@ Resources:
   
   MySNSTopicSecond:
     Type: 'AWS::SNS::Topic'
+    Condition: ShouldCreateSNSTopic
     DeletionPolicy: Retain
     Properties:
       TopicName: lambda-errors-reporting
