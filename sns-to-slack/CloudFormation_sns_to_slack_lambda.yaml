@@ -90,8 +90,12 @@ Resources:
                   topic_arn = sns["TopicArn"]
                   slack_channel = '#' + topic_arn.split(':')[-1]
                   account = topic_arn.split(':')[-2]
-                  subject = sns["Subject"]
-                  m_text = sns["Message"]
+                  if sns["Subject"] is None:
+                      subject = "Lambda function failure"
+                      m_text = json.dumps(json.loads(sns["Message"]), indent=2)
+                  else:
+                      subject = sns["Subject"]
+                      m_text = sns["Message"]
                   message = f"*({account}) {subject}*: {m_text}"
                   webclient = WebClient(token=os.environ['SLACK_API_TOKEN'])
                   status = post_slack_message(webclient, slack_channel, message)
