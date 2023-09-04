@@ -172,8 +172,6 @@ Resources:
           SNS_TOPIC_ARN: !Ref MySNSTopic
           TABLE_NAME: 'monitoring_db_table'
       MemorySize: 128
-      DeadLetterConfig:
-        TargetArn: !Ref ErrorSNSTopic
       Timeout: 120
   
   MySecondLambdaFunction:
@@ -518,8 +516,6 @@ Resources:
           LAMBDA_FUNCTION_ARN: !GetAtt MyLambdaFunction.Arn
           LAMBDA_FUNCTION_ROLE_ARN: !GetAtt LambdaExecutionRole.Arn
       MemorySize: 256
-      DeadLetterConfig:
-        TargetArn: !Ref ErrorSNSTopic
       Timeout: 300
 
   LambdaExecutionRole:
