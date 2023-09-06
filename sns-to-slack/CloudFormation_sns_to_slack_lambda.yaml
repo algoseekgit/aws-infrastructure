@@ -92,7 +92,7 @@ Resources:
                   account = topic_arn.split(':')[-2]
                   if sns["Subject"] is None:
                       subject = "Lambda function failure"
-                      m_text = json.dumps(json.loads(sns["Message"]), indent=2)
+                      m_text = "\n```\n" + json.dumps(json.loads(sns["Message"]), indent=4) + "\n```"
                   else:
                       subject = sns["Subject"]
                       m_text = sns["Message"]
