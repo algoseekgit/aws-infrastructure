@@ -115,6 +115,12 @@ def lambda_handler(event, context):
             bkg_text_id,
             trading_day
         )
+        if not db_record:
+            send_sns_alert(
+                sns,
+                failure_msg
+            )
+            return
         event_log = json.loads(db_record.get('events_log', "[]"))
         update_times = [record['modified'] for record in event_log]
         update_times.append(db_record['modified'])
