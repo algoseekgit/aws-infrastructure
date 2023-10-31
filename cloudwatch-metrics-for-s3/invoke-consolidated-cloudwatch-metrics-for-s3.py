@@ -16,7 +16,7 @@ def lambda_handler(event, context):
     default_accounts = ['data', 'qgdata', 'datalake', 'opra_dev', 'opra_analytics', 
                 'index', 'equityrefdata', 'futuresrefdata', 'china-data', 
                 'data_exchange', 'algoseek-docs', 'algoseek-sample', 
-                'equity-market-data-02', 'equityrefdata-02']
+                'equity-market-data-02', 'equityrefdata-02', 'futures-data-01']
     accounts = event.get('account_names', default_accounts)
     
     for account in accounts:
